@@ -1,0 +1,100 @@
+#!/usr/bin/python
+
+#Creates an organized file using commands: HEADER, STRING, FILEWORD, NUMBER, and REFER.
+
+#HEADER "X" writes "X" once at the top
+#STRING "X" writes "X" to each record in the output
+#FILEWORD label "filename" writes a random word from file "filename"
+#NUMBER label min max--writes a random number between min and max
+#REFER "label" follows the directions of a defined label whether it is a fileword or number.
+
+#Usage: ./filemaker INPUTCOMMANDFILE OUTPUTFILE RECORDCOUNT
+
+import sys
+import os
+import shlex
+import random
+
+
+if len(sys.argv) != 4:
+  print("Usage: 3 parameters must be specified.")
+  exit(1)
+
+#check sys.argv[]
+#recordCount
+try:
+  count = int(sys.argv[3])
+  if count < 0:
+    print("Error: %d must be positive" % sys.argv[3])
+    exit(1)
+except:
+  print("Error: %s is not a valid integer" % sys.argv[3])
+  exit(1)
+
+#outputfile
+try:
+  #overwrite output file
+  stdOut = open(sys.argv[2], 'w')
+except:
+  print("Error: cannot open %s" % sys.argv[2])
+  exit(1)
+
+#cmdFile (input)
+try:
+  #flag for read only
+  stdIn = open(sys.argv[1], 'r')
+except:
+  print("Error: cannot open %s" % sys.argv[1])
+  exit(1)
+
+#make a list of commands (commands are also a list)
+commandList = []
+randomFiles = {}
+#write to stdOut
+for string in stdIn.readlines():
+  shlexed = shlex.split(string, True)
+  if len(shlexed) == 0:
+    continue
+  #write all "headerstring" in HEADER "headerstring" to stdOut
+  if shlexed[0] == 'HEADER':
+    stdOut.write(shlexed[1].decode('string_escape'))
+    continue
+  #else write to commands
+  else:
+    commandList.append(shlexed)
+#slurp FILEWORD files as a list into a dictionary with label as key, entire file as value
+  if shlexed[0] == 'FILEWORD':
+    fileOpen = open(shlexed[2], 'r')
+    randomFiles[shlexed[1]] = fileOpen.readlines()
+    fileOpen.close()
+#input file no longer needed
+stdIn.close()
+
+#create count (sys.argv[3]) entries and write to file
+for i in range(count):
+  #generate random data (FILEWORD and NUMBER)
+  randomData = {}
+  for command in commandList:
+    #get random entry from filename's data
+    if command[0] == 'FILEWORD':
+      fileData = randomFiles[command[1].decode('string_escape')]
+      randomData[command[1]] = fileData[random.randint(0, len(fileData)-1)]
+    #create random number within limits
+    elif command[0] == 'NUMBER':
+      randomData[command[1]] = random.randint(int(command[2]), int(command[3]))
+
+  #write to stdOut
+  output = ""
+  for command in commandList:
+    if command[0] == "NUMBER":
+      output += str(randomData[command[1]])
+      continue
+    aOutput = ""
+    if(command[0] == "STRING"):
+      aOutput = command[1]
+    else:
+      aOutput = randomData[command[1]].rstrip()
+      #original newline character preserved
+    output += aOutput.replace("\\n", "\n")
+  stdOut.write(output)
+stdOut.close()
